@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewErrorEvent } from 'react-native-webview';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { format, subDays, subWeeks, subMonths, subYears } from 'date-fns';
 
@@ -924,15 +924,50 @@ export default function AnalyticsScreen() {
             </TouchableOpacity>
           </View>
           
-          {pdfBase64 && (
+          {pdfBase64 ? (
             <WebView
-              source={{ uri: pdfBase64 }}
+              source={{
+                html: `
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+                      <style>
+                        body { margin: 0; padding: 0; }
+                        embed { width: 100%; height: 100vh; }
+                      </style>
+                    </head>
+                    <body>
+                      <embed src="${pdfBase64}" type="application/pdf" />
+                    </body>
+                  </html>
+                `
+              }}
               style={styles.webview}
               onError={(syntheticEvent) => {
                 const { nativeEvent } = syntheticEvent;
                 console.warn('WebView error: ', nativeEvent);
+                Alert.alert(
+                  'Error',
+                  'Failed to display the PDF. You can still download or share it using the buttons below.'
+                );
+              }}
+              onLoadError={(syntheticEvent: { nativeEvent: { code: number; description: string } }) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView load error: ', nativeEvent);
+                Alert.alert(
+                  'Error',
+                  'Failed to load the PDF viewer. You can still download or share it using the buttons below.'
+                );
               }}
             />
+          ) : (
+            <View style={styles.noPreviewContainer}>
+              <MaterialIcons name="picture-as-pdf" size={48} color={Colors[colorScheme].text} />
+              <Text style={[styles.noPreviewText, { color: Colors[colorScheme].text }]}>
+                No PDF preview available
+              </Text>
+            </View>
           )}
           
           <View style={styles.modalActions}>
@@ -1227,5 +1262,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  noPreviewContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noPreviewText: {
+    fontSize: 16,
+    marginTop: 12,
+    textAlign: 'center',
   },
 }); 
