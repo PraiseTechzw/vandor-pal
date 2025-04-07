@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React from 'react';
+import { Colors } from '@/constants/Colors';
 
 export default function RegisterScreen() {
   const colorScheme = useColorScheme();
@@ -34,7 +35,7 @@ export default function RegisterScreen() {
       // TODO: Implement actual registration logic
       // For now, we'll just simulate a successful registration
       await AsyncStorage.setItem('auth_token', 'dummy_token');
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/dashboard');
     } catch (error) {
       Alert.alert('Error', 'Registration failed. Please try again.');
     } finally {

@@ -3,21 +3,21 @@ import { useColorScheme } from 'react-native';
 import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
 
-export default function TabNavigator() {
-  const colorScheme = useColorScheme();
+export default function TabLayout() {
+  const colorScheme = useColorScheme() ?? 'light';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
+        tabBarActiveTintColor: Colors[colorScheme].tint,
+        tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
         tabBarStyle: {
-          backgroundColor: Colors[colorScheme ?? 'light'].background,
+          backgroundColor: Colors[colorScheme].background,
         },
         headerStyle: {
-          backgroundColor: Colors[colorScheme ?? 'light'].background,
+          backgroundColor: Colors[colorScheme].background,
         },
-        headerTintColor: Colors[colorScheme ?? 'light'].text,
+        headerTintColor: Colors[colorScheme].text,
       }}
     >
       <Tabs.Screen

@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import React from 'react';
+import { Colors } from '@/constants/Colors';
 
 export default function DashboardScreen() {
   const colorScheme = useColorScheme();

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useColorScheme } from 'react-native';
 import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -7,43 +7,38 @@ import { MaterialIcons } from '@expo/vector-icons';
 const orders = [
   {
     id: '1',
-    customerName: 'John Doe',
-    items: 3,
-    total: 89.99,
+    items: [
+      { name: 'Product A', quantity: 2, price: 25.99 },
+      { name: 'Product B', quantity: 1, price: 15.50 },
+    ],
+    total: 67.48,
     status: 'pending',
+    deliveryAddress: 'Street Vendor - Main Market',
     date: '2024-04-06',
-    deliveryAddress: '123 Main St, City',
   },
   {
     id: '2',
-    customerName: 'Jane Smith',
-    items: 2,
-    total: 45.50,
-    status: 'processing',
-    date: '2024-04-06',
-    deliveryAddress: '456 Oak Ave, Town',
-  },
-  {
-    id: '3',
-    customerName: 'Bob Johnson',
-    items: 5,
-    total: 150.75,
-    status: 'delivered',
+    items: [
+      { name: 'Product C', quantity: 3, price: 10.00 },
+      { name: 'Product D', quantity: 2, price: 20.00 },
+    ],
+    total: 70.00,
+    status: 'completed',
+    deliveryAddress: 'Street Vendor - City Center',
     date: '2024-04-05',
-    deliveryAddress: '789 Pine Rd, Village',
   },
 ];
 
 export default function OrdersScreen() {
   const colorScheme = useColorScheme();
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 360;
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
         return '#FF9800';
-      case 'processing':
-        return '#2196F3';
-      case 'delivered':
+      case 'completed':
         return '#4CAF50';
       default:
         return '#666';
@@ -53,12 +48,12 @@ export default function OrdersScreen() {
   const renderOrder = ({ item }) => (
     <View style={[styles.orderCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
       <View style={styles.orderHeader}>
-        <View>
-          <Text style={[styles.customerName, { color: Colors[colorScheme ?? 'light'].text }]}>
-            {item.customerName}
-          </Text>
+        <View style={styles.orderInfo}>
           <Text style={[styles.orderDate, { color: Colors[colorScheme ?? 'light'].text }]}>
             {item.date}
+          </Text>
+          <Text style={[styles.deliveryAddress, { color: Colors[colorScheme ?? 'light'].text }]}>
+            {item.deliveryAddress}
           </Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
@@ -66,40 +61,50 @@ export default function OrdersScreen() {
         </View>
       </View>
 
-      <View style={styles.orderDetails}>
-        <View style={styles.detailItem}>
-          <MaterialIcons name="shopping-cart" size={20} color="#2196F3" />
-          <Text style={[styles.detailText, { color: Colors[colorScheme ?? 'light'].text }]}>
-            {item.items} items
-          </Text>
-        </View>
-        <View style={styles.detailItem}>
-          <MaterialIcons name="attach-money" size={20} color="#4CAF50" />
-          <Text style={[styles.detailText, { color: Colors[colorScheme ?? 'light'].text }]}>
-            ${item.total}
-          </Text>
-        </View>
+      <View style={styles.itemsContainer}>
+        {item.items.map((product, index) => (
+          <View key={index} style={styles.itemRow}>
+            <Text style={[styles.itemName, { color: Colors[colorScheme ?? 'light'].text }]}>
+              {product.name}
+            </Text>
+            <View style={styles.itemDetails}>
+              <Text style={[styles.itemQuantity, { color: Colors[colorScheme ?? 'light'].text }]}>
+                {product.quantity}x
+              </Text>
+              <Text style={[styles.itemPrice, { color: Colors[colorScheme ?? 'light'].text }]}>
+                ${product.price.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        ))}
       </View>
 
-      <View style={styles.deliveryInfo}>
-        <MaterialIcons name="location-on" size={20} color="#666" />
-        <Text style={[styles.deliveryText, { color: Colors[colorScheme ?? 'light'].text }]}>
-          {item.deliveryAddress}
+      <View style={styles.orderFooter}>
+        <Text style={[styles.totalLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
+          Total:
+        </Text>
+        <Text style={[styles.totalAmount, { color: Colors[colorScheme ?? 'light'].text }]}>
+          ${item.total.toFixed(2)}
         </Text>
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#2196F3' }]}>
-          <Text style={styles.actionButtonText}>View Details</Text>
-        </TouchableOpacity>
-        {item.status === 'pending' && (
-          <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}>
-            <Text style={styles.actionButtonText}>Accept</Text>
+      {item.status === 'pending' && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+            onPress={() => handleCompleteOrder(item.id)}
+          >
+            <Text style={styles.actionButtonText}>Complete Order</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
+
+  const handleCompleteOrder = (orderId) => {
+    // TODO: Implement order completion logic
+    console.log('Complete order:', orderId);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
@@ -116,7 +121,10 @@ export default function OrdersScreen() {
         data={orders}
         renderItem={renderOrder}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContainer,
+          { paddingHorizontal: isSmallScreen ? 8 : 16 }
+        ]}
       />
     </View>
   );
@@ -140,12 +148,13 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   listContainer: {
-    padding: 16,
+    paddingVertical: 16,
   },
   orderCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
     padding: 16,
     borderRadius: 12,
-    marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -155,16 +164,20 @@ const styles = StyleSheet.create({
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  customerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  orderInfo: {
+    flex: 1,
+    marginRight: 8,
   },
   orderDate: {
     fontSize: 14,
-    opacity: 0.7,
+    marginBottom: 4,
+  },
+  deliveryAddress: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -177,42 +190,59 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textTransform: 'capitalize',
   },
-  orderDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailText: {
-    fontSize: 14,
-  },
-  deliveryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  itemsContainer: {
     marginBottom: 16,
   },
-  deliveryText: {
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  itemName: {
     fontSize: 14,
     flex: 1,
   },
-  actionButtons: {
+  itemDetails: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 16,
+  },
+  itemQuantity: {
+    fontSize: 14,
+  },
+  itemPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  orderFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 12,
+    marginTop: 8,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  totalAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  actionButtons: {
+    marginTop: 16,
   },
   actionButton: {
-    flex: 1,
-    padding: 8,
-    borderRadius: 6,
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 }); 

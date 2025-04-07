@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React from 'react';
 
 export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
@@ -34,5 +35,5 @@ export default function Index() {
     return <Redirect href="/auth/login" />;
   }
 
-  return <Redirect href="/(tabs)" />;
+  return <Redirect href="/(tabs)/dashboard" />;
 } 
