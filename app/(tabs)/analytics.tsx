@@ -58,6 +58,7 @@ export default function AnalyticsScreen() {
   const [selectedTab, setSelectedTab] = useState<TabType>('overview');
   const [isExporting, setIsExporting] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -243,11 +244,22 @@ export default function AnalyticsScreen() {
       // Generate PDF
       const { uri } = await Print.printToFileAsync({ html });
       
-      // Save the PDF URI for viewing
-      setPdfUri(uri);
-      
-      // Show the PDF viewer modal
-      setIsPdfModalVisible(true);
+      try {
+        // Read the PDF file as base64
+        const base64Data = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        // Save both the file URI and base64 data
+        setPdfUri(uri);
+        setPdfBase64(`data:application/pdf;base64,${base64Data}`);
+        
+        // Show the PDF viewer modal
+        setIsPdfModalVisible(true);
+      } catch (error) {
+        console.error('Error reading PDF file:', error);
+        Alert.alert('Error', 'Failed to read the generated PDF file.');
+      }
       
       setIsExporting(false);
     } catch (error) {
@@ -912,10 +924,14 @@ export default function AnalyticsScreen() {
             </TouchableOpacity>
           </View>
           
-          {pdfUri && (
+          {pdfBase64 && (
             <WebView
-              source={{ uri: pdfUri }}
+              source={{ uri: pdfBase64 }}
               style={styles.webview}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView error: ', nativeEvent);
+              }}
             />
           )}
           
