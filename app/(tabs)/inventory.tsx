@@ -1,8 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Dimensions, Alert } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Colors } from '@/constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 const { width } = Dimensions.get('window');
 
@@ -19,35 +21,54 @@ type Product = {
 const mockProducts: Product[] = [
   {
     id: '1',
-    name: 'Premium Coffee Beans',
-    category: 'Beverages',
-    price: 24.99,
+    name: 'Tomatoes',
+    category: 'Vegetables',
+    price: 100,
     stock: 45,
     lowStockThreshold: 20,
     lastUpdated: '2 hours ago',
   },
   {
     id: '2',
-    name: 'Organic Tea Leaves',
-    category: 'Beverages',
-    price: 18.99,
+    name: 'Onions',
+    category: 'Vegetables',
+    price: 80,
     stock: 15,
     lowStockThreshold: 20,
     lastUpdated: '1 day ago',
   },
   {
     id: '3',
-    name: 'Artisan Bread',
-    category: 'Bakery',
-    price: 5.99,
+    name: 'Potatoes',
+    category: 'Vegetables',
+    price: 120,
     stock: 30,
     lowStockThreshold: 15,
     lastUpdated: '3 hours ago',
+  },
+  {
+    id: '4',
+    name: 'Cabbage',
+    category: 'Vegetables',
+    price: 150,
+    stock: 25,
+    lowStockThreshold: 10,
+    lastUpdated: '5 hours ago',
+  },
+  {
+    id: '5',
+    name: 'Carrots',
+    category: 'Vegetables',
+    price: 90,
+    stock: 40,
+    lowStockThreshold: 15,
+    lastUpdated: '1 hour ago',
   },
 ];
 
 export default function InventoryScreen() {
   const colorScheme = useColorScheme() ?? 'light';
+  const { convertAmount } = useCurrency();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -58,6 +79,18 @@ export default function InventoryScreen() {
     const matchesCategory = !selectedCategory || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const handleAddProduct = () => {
+    Alert.alert('Add Product', 'Add a new product to inventory');
+  };
+
+  const handleEditProduct = (product: Product) => {
+    Alert.alert('Edit Product', `Edit ${product.name}`);
+  };
+
+  const handleUpdateStock = (product: Product) => {
+    Alert.alert('Update Stock', `Update stock for ${product.name}`);
+  };
 
   const renderProduct = ({ item }: { item: Product }) => (
     <TouchableOpacity
@@ -81,7 +114,7 @@ export default function InventoryScreen() {
           {item.category}
         </Text>
         <Text style={[styles.productPrice, { color: Colors[colorScheme].text }]}>
-          ${item.price.toFixed(2)}
+          {convertAmount(item.price)}
         </Text>
       </View>
 
@@ -89,23 +122,46 @@ export default function InventoryScreen() {
         <Text style={[styles.lastUpdated, { color: Colors[colorScheme].tabIconDefault }]}>
           Updated {item.lastUpdated}
         </Text>
-        <TouchableOpacity style={styles.editButton}>
-          <MaterialIcons name="edit" size={20} color={Colors[colorScheme].tint} />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => handleUpdateStock(item)}
+          >
+            <MaterialIcons name="inventory" size={20} color={Colors[colorScheme].tint} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => handleEditProduct(item)}
+          >
+            <MaterialIcons name="edit" size={20} color={Colors[colorScheme].tint} />
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: Colors[colorScheme].text }]}>
-          Inventory
-        </Text>
-        <TouchableOpacity style={styles.addButton}>
-          <MaterialIcons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      <LinearGradient
+        colors={[
+          '#2196F3',
+          '#1976D2',
+          '#0D47A1'
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <Text style={[styles.title, { color: '#fff' }]}>Inventory</Text>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={handleAddProduct}
+          >
+            <MaterialIcons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: Colors[colorScheme].card }]}>
@@ -174,17 +230,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    padding: 20,
+    paddingTop: 50,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
   },
   addButton: {
-    backgroundColor: Colors.light.tint,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -193,6 +259,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     padding: 16,
+    marginTop: -20,
   },
   searchBar: {
     flexDirection: 'row',
@@ -281,7 +348,11 @@ const styles = StyleSheet.create({
   lastUpdated: {
     fontSize: 12,
   },
-  editButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
     padding: 4,
   },
 }); 
