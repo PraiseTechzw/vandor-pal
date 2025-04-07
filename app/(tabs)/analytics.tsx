@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Share, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Share, Platform, Modal } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState, useRef } from 'react';
@@ -6,6 +6,8 @@ import { Colors } from '@/constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { WebView } from 'react-native-webview';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { format, subDays, subWeeks, subMonths, subYears } from 'date-fns';
 
@@ -13,6 +15,7 @@ const { width } = Dimensions.get('window');
 
 type Timeframe = 'day' | 'week' | 'month' | 'year';
 type ReportType = 'sales' | 'inventory' | 'customers' | 'profit';
+type TabType = 'overview' | 'revenue' | 'customers' | 'products' | 'profit';
 
 const mockData = {
   revenue: {
@@ -52,11 +55,15 @@ export default function AnalyticsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('week');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('sales');
+  const [selectedTab, setSelectedTab] = useState<TabType>('overview');
   const [isExporting, setIsExporting] = useState(false);
+  const [pdfUri, setPdfUri] = useState<string | null>(null);
+  const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const timeframes: Timeframe[] = ['day', 'week', 'month', 'year'];
   const reportTypes: ReportType[] = ['sales', 'inventory', 'customers', 'profit'];
+  const tabs: TabType[] = ['overview', 'revenue', 'customers', 'products', 'profit'];
 
   const getTimeframeLabel = (timeframe: Timeframe) => {
     switch (timeframe) {
@@ -236,38 +243,526 @@ export default function AnalyticsScreen() {
       // Generate PDF
       const { uri } = await Print.printToFileAsync({ html });
       
-      // Share the PDF
-      if (Platform.OS === 'ios') {
-        await Sharing.shareAsync(uri, { UTI: '.pdf' });
-      } else {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
-      }
+      // Save the PDF URI for viewing
+      setPdfUri(uri);
+      
+      // Show the PDF viewer modal
+      setIsPdfModalVisible(true);
       
       setIsExporting(false);
-      Alert.alert('Success', 'Report exported successfully!');
     } catch (error) {
       setIsExporting(false);
-      Alert.alert('Error', 'Failed to export report. Please try again.');
+      Alert.alert('Error', 'Failed to generate report. Please try again.');
       console.error(error);
     }
   };
 
   const handleShareReport = async () => {
     try {
-      const message = `VendorPal Analytics Report - ${getTimeframeLabel(selectedTimeframe)}\n\n` +
-        `Total Revenue: $${mockData.revenue[selectedTimeframe][mockData.revenue[selectedTimeframe].length - 1].toLocaleString()}\n` +
-        `Total Customers: ${mockData.customers[selectedTimeframe][mockData.customers[selectedTimeframe].length - 1].toLocaleString()}\n` +
-        `Total Profit: $${mockData.profit[selectedTimeframe][mockData.profit[selectedTimeframe].length - 1].toLocaleString()}\n\n` +
-        `Top Product: ${mockData.topProducts[0].name} (${mockData.topProducts[0].sales} sales)\n` +
-        `Generated on ${format(new Date(), 'MMMM d, yyyy')}`;
+      if (!pdfUri) {
+        Alert.alert('Error', 'No report available to share. Please generate a report first.');
+        return;
+      }
       
-      await Share.share({
-        message,
-        title: 'VendorPal Analytics Report',
-      });
+      // Share the PDF
+      if (Platform.OS === 'ios') {
+        await Sharing.shareAsync(pdfUri, { UTI: '.pdf' });
+      } else {
+        await Sharing.shareAsync(pdfUri, { mimeType: 'application/pdf' });
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to share report. Please try again.');
       console.error(error);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      if (!pdfUri) {
+        Alert.alert('Error', 'No report available to download. Please generate a report first.');
+        return;
+      }
+      
+      // Create a downloads directory if it doesn't exist
+      const downloadDir = `${FileSystem.documentDirectory}downloads/`;
+      const dirInfo = await FileSystem.getInfoAsync(downloadDir);
+      
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(downloadDir, { intermediates: true });
+      }
+      
+      // Generate a filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `VendorPal_Report_${timestamp}.pdf`;
+      const destination = `${downloadDir}${filename}`;
+      
+      // Copy the PDF to the downloads directory
+      await FileSystem.copyAsync({
+        from: pdfUri,
+        to: destination
+      });
+      
+      Alert.alert('Success', `Report downloaded to: ${destination}`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to download report. Please try again.');
+      console.error(error);
+    }
+  };
+
+  const renderTabContent = () => {
+    switch (selectedTab) {
+      case 'overview':
+        return (
+          <>
+            <View style={styles.kpiContainer}>
+              {kpis.map((kpi, index) => (
+                <View
+                  key={index}
+                  style={[styles.kpiCard, { backgroundColor: Colors[colorScheme].card }]}
+                >
+                  <View style={styles.kpiHeader}>
+                    <MaterialIcons name={kpi.icon} size={24} color={kpi.color} />
+                    <Text style={[styles.kpiChange, { color: kpi.change.startsWith('+') ? '#4CAF50' : '#FF5722' }]}>
+                      {kpi.change}
+                    </Text>
+                  </View>
+                  <Text style={[styles.kpiValue, { color: Colors[colorScheme].text }]}>
+                    {kpi.value}
+                  </Text>
+                  <Text style={[styles.kpiTitle, { color: Colors[colorScheme].tabIconDefault }]}>
+                    {kpi.title}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Revenue Trend
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <LineChart
+                data={{
+                  labels: getDateLabels(selectedTimeframe),
+                  datasets: [
+                    {
+                      data: mockData.revenue[selectedTimeframe],
+                    },
+                  ],
+                }}
+                width={width - 64}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                yAxisLabel="$"
+                yAxisSuffix=""
+              />
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Customer Growth
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <BarChart
+                data={{
+                  labels: getDateLabels(selectedTimeframe),
+                  datasets: [
+                    {
+                      data: mockData.customers[selectedTimeframe],
+                    },
+                  ],
+                }}
+                width={width - 64}
+                height={220}
+                chartConfig={chartConfig}
+                style={styles.chart}
+                showValuesOnTopOfBars
+                yAxisLabel=""
+                yAxisSuffix=""
+              />
+            </View>
+          </>
+        );
+        
+      case 'revenue':
+        return (
+          <>
+            <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+              <Text style={[styles.summaryTitle, { color: Colors[colorScheme].text }]}>
+                Revenue Summary
+              </Text>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Total Revenue
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    ${mockData.revenue[selectedTimeframe][mockData.revenue[selectedTimeframe].length - 1].toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Growth
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+                    +12%
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Revenue Trend
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <LineChart
+                data={{
+                  labels: getDateLabels(selectedTimeframe),
+                  datasets: [
+                    {
+                      data: mockData.revenue[selectedTimeframe],
+                    },
+                  ],
+                }}
+                width={width - 64}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                yAxisLabel="$"
+                yAxisSuffix=""
+              />
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Revenue by Category
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pieChartContainer}>
+                <PieChart
+                  data={mockData.categoryDistribution.map((item, index) => ({
+                    name: item.name,
+                    population: item.value,
+                    color: [
+                      '#4CAF50',
+                      '#2196F3',
+                      '#FF9800',
+                      '#9C27B0',
+                    ][index % 4],
+                    legendFontColor: Colors[colorScheme].text,
+                    legendFontSize: 12,
+                  }))}
+                  width={width - 64}
+                  height={220}
+                  chartConfig={pieChartConfig}
+                  accessor="population"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  absolute
+                />
+              </View>
+            </View>
+          </>
+        );
+        
+      case 'customers':
+        return (
+          <>
+            <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+              <Text style={[styles.summaryTitle, { color: Colors[colorScheme].text }]}>
+                Customer Summary
+              </Text>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Total Customers
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    {mockData.customers[selectedTimeframe][mockData.customers[selectedTimeframe].length - 1].toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Growth
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+                    +8%
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Average Order Value
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    $45.99
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Customer Retention
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    78%
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Customer Growth
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <BarChart
+                data={{
+                  labels: getDateLabels(selectedTimeframe),
+                  datasets: [
+                    {
+                      data: mockData.customers[selectedTimeframe],
+                    },
+                  ],
+                }}
+                width={width - 64}
+                height={220}
+                chartConfig={chartConfig}
+                style={styles.chart}
+                showValuesOnTopOfBars
+                yAxisLabel=""
+                yAxisSuffix=""
+              />
+            </View>
+          </>
+        );
+        
+      case 'products':
+        return (
+          <>
+            <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+              <Text style={[styles.summaryTitle, { color: Colors[colorScheme].text }]}>
+                Product Performance
+              </Text>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Top Product
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    {mockData.topProducts[0].name}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Total Products
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    24
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Category Distribution
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pieChartContainer}>
+                <PieChart
+                  data={mockData.categoryDistribution.map((item, index) => ({
+                    name: item.name,
+                    population: item.value,
+                    color: [
+                      '#4CAF50',
+                      '#2196F3',
+                      '#FF9800',
+                      '#9C27B0',
+                    ][index % 4],
+                    legendFontColor: Colors[colorScheme].text,
+                    legendFontSize: 12,
+                  }))}
+                  width={width - 64}
+                  height={220}
+                  chartConfig={pieChartConfig}
+                  accessor="population"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  absolute
+                />
+              </View>
+            </View>
+            
+            <View style={[styles.tableContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableTitle, { color: Colors[colorScheme].text }]}>
+                  Top Products
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.table}>
+                <View style={[styles.tableRow, styles.tableHeaderRow]}>
+                  <Text style={[styles.tableHeaderText, { color: Colors[colorScheme].tabIconDefault }]}>Product</Text>
+                  <Text style={[styles.tableHeaderText, { color: Colors[colorScheme].tabIconDefault }]}>Sales</Text>
+                  <Text style={[styles.tableHeaderText, { color: Colors[colorScheme].tabIconDefault }]}>Revenue</Text>
+                </View>
+                {mockData.topProducts.map((product, index) => (
+                  <View key={index} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { color: Colors[colorScheme].text }]}>{product.name}</Text>
+                    <Text style={[styles.tableCell, { color: Colors[colorScheme].text }]}>{product.sales}</Text>
+                    <Text style={[styles.tableCell, { color: Colors[colorScheme].text }]}>${product.revenue}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        );
+        
+      case 'profit':
+        return (
+          <>
+            <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+              <Text style={[styles.summaryTitle, { color: Colors[colorScheme].text }]}>
+                Profit Summary
+              </Text>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Total Profit
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    ${mockData.profit[selectedTimeframe][mockData.profit[selectedTimeframe].length - 1].toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Growth
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+                    +15%
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    Profit Margin
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    32%
+                  </Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+                    ROI
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+                    2.4x
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Profit Analysis
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <LineChart
+                data={{
+                  labels: getDateLabels(selectedTimeframe),
+                  datasets: [
+                    {
+                      data: mockData.profit[selectedTimeframe],
+                      color: (opacity = 1) => `rgba(156, 39, 176, ${opacity})`,
+                    },
+                  ],
+                }}
+                width={width - 64}
+                height={220}
+                chartConfig={{
+                  ...chartConfig,
+                  color: (opacity = 1) => `rgba(156, 39, 176, ${opacity})`,
+                }}
+                bezier
+                style={styles.chart}
+                yAxisLabel="$"
+                yAxisSuffix=""
+              />
+            </View>
+            
+            <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+                  Profit vs Revenue
+                </Text>
+                <TouchableOpacity>
+                  <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                </TouchableOpacity>
+              </View>
+              <LineChart
+                data={{
+                  labels: getDateLabels(selectedTimeframe),
+                  datasets: [
+                    {
+                      data: mockData.revenue[selectedTimeframe],
+                      color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+                    },
+                    {
+                      data: mockData.profit[selectedTimeframe],
+                      color: (opacity = 1) => `rgba(156, 39, 176, ${opacity})`,
+                    },
+                  ],
+                  legend: ['Revenue', 'Profit'],
+                }}
+                width={width - 64}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                yAxisLabel="$"
+                yAxisSuffix=""
+              />
+            </View>
+          </>
+        );
+        
+      default:
+        return null;
     }
   };
 
@@ -335,213 +830,48 @@ export default function AnalyticsScreen() {
           ))}
         </ScrollView>
 
-        <View style={styles.kpiContainer}>
-          {kpis.map((kpi, index) => (
-            <View
-              key={index}
-              style={[styles.kpiCard, { backgroundColor: Colors[colorScheme].card }]}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsContainer}
+        >
+          {tabs.map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.tabButton,
+                {
+                  backgroundColor: selectedTab === tab
+                    ? Colors[colorScheme].tint
+                    : Colors[colorScheme].card
+                }
+              ]}
+              onPress={() => setSelectedTab(tab)}
             >
-              <View style={styles.kpiHeader}>
-                <MaterialIcons name={kpi.icon} size={24} color={kpi.color} />
-                <Text style={[styles.kpiChange, { color: kpi.change.startsWith('+') ? '#4CAF50' : '#FF5722' }]}>
-                  {kpi.change}
-                </Text>
-              </View>
-              <Text style={[styles.kpiValue, { color: Colors[colorScheme].text }]}>
-                {kpi.value}
-              </Text>
-              <Text style={[styles.kpiTitle, { color: Colors[colorScheme].tabIconDefault }]}>
-                {kpi.title}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.reportTypeContainer}>
-          <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>
-            Report Type
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.reportTypeScroll}
-          >
-            {reportTypes.map(type => (
-              <TouchableOpacity
-                key={type}
+              <MaterialIcons 
+                name={
+                  tab === 'overview' ? 'dashboard' :
+                  tab === 'revenue' ? 'attach-money' :
+                  tab === 'customers' ? 'people' :
+                  tab === 'products' ? 'inventory' :
+                  'trending-up'
+                } 
+                size={20} 
+                color={selectedTab === tab ? '#fff' : Colors[colorScheme].text} 
+              />
+              <Text
                 style={[
-                  styles.reportTypeButton,
-                  {
-                    backgroundColor: selectedReportType === type
-                      ? Colors[colorScheme].tint
-                      : Colors[colorScheme].card
-                  }
+                  styles.tabText,
+                  { color: selectedTab === tab ? '#fff' : Colors[colorScheme].text }
                 ]}
-                onPress={() => setSelectedReportType(type)}
               >
-                <MaterialIcons 
-                  name={
-                    type === 'sales' ? 'attach-money' :
-                    type === 'inventory' ? 'inventory' :
-                    type === 'customers' ? 'people' :
-                    'trending-up'
-                  } 
-                  size={20} 
-                  color={selectedReportType === type ? '#fff' : Colors[colorScheme].text} 
-                />
-                <Text
-                  style={[
-                    styles.reportTypeText,
-                    { color: selectedReportType === type ? '#fff' : Colors[colorScheme].text }
-                  ]}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
-              Revenue Trend
-            </Text>
-            <TouchableOpacity>
-              <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
             </TouchableOpacity>
-          </View>
-          <LineChart
-            data={{
-              labels: getDateLabels(selectedTimeframe),
-              datasets: [
-                {
-                  data: mockData.revenue[selectedTimeframe],
-                },
-              ],
-            }}
-            width={width - 64}
-            height={220}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chart}
-          />
-        </View>
+          ))}
+        </ScrollView>
 
-        <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
-              Customer Growth
-            </Text>
-            <TouchableOpacity>
-              <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
-            </TouchableOpacity>
-          </View>
-          <BarChart
-            data={{
-              labels: getDateLabels(selectedTimeframe),
-              datasets: [
-                {
-                  data: mockData.customers[selectedTimeframe],
-                },
-              ],
-            }}
-            width={width - 64}
-            height={220}
-            chartConfig={chartConfig}
-            style={styles.chart}
-            showValuesOnTopOfBars
-          />
-        </View>
-
-        <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
-              Profit Analysis
-            </Text>
-            <TouchableOpacity>
-              <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
-            </TouchableOpacity>
-          </View>
-          <LineChart
-            data={{
-              labels: getDateLabels(selectedTimeframe),
-              datasets: [
-                {
-                  data: mockData.profit[selectedTimeframe],
-                  color: (opacity = 1) => `rgba(156, 39, 176, ${opacity})`,
-                },
-              ],
-            }}
-            width={width - 64}
-            height={220}
-            chartConfig={{
-              ...chartConfig,
-              color: (opacity = 1) => `rgba(156, 39, 176, ${opacity})`,
-            }}
-            bezier
-            style={styles.chart}
-          />
-        </View>
-
-        <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
-              Category Distribution
-            </Text>
-            <TouchableOpacity>
-              <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.pieChartContainer}>
-            <PieChart
-              data={mockData.categoryDistribution.map((item, index) => ({
-                name: item.name,
-                population: item.value,
-                color: [
-                  '#4CAF50',
-                  '#2196F3',
-                  '#FF9800',
-                  '#9C27B0',
-                ][index % 4],
-                legendFontColor: Colors[colorScheme].text,
-                legendFontSize: 12,
-              }))}
-              width={width - 64}
-              height={220}
-              chartConfig={pieChartConfig}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              absolute
-            />
-          </View>
-        </View>
-
-        <View style={[styles.tableContainer, { backgroundColor: Colors[colorScheme].card }]}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableTitle, { color: Colors[colorScheme].text }]}>
-              Top Products
-            </Text>
-            <TouchableOpacity>
-              <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.table}>
-            <View style={[styles.tableRow, styles.tableHeaderRow]}>
-              <Text style={[styles.tableHeaderText, { color: Colors[colorScheme].tabIconDefault }]}>Product</Text>
-              <Text style={[styles.tableHeaderText, { color: Colors[colorScheme].tabIconDefault }]}>Sales</Text>
-              <Text style={[styles.tableHeaderText, { color: Colors[colorScheme].tabIconDefault }]}>Revenue</Text>
-            </View>
-            {mockData.topProducts.map((product, index) => (
-              <View key={index} style={styles.tableRow}>
-                <Text style={[styles.tableCell, { color: Colors[colorScheme].text }]}>{product.name}</Text>
-                <Text style={[styles.tableCell, { color: Colors[colorScheme].text }]}>{product.sales}</Text>
-                <Text style={[styles.tableCell, { color: Colors[colorScheme].text }]}>${product.revenue}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        {renderTabContent()}
 
         <View style={styles.exportContainer}>
           <TouchableOpacity
@@ -551,11 +881,63 @@ export default function AnalyticsScreen() {
           >
             <MaterialIcons name="picture-as-pdf" size={20} color="#fff" />
             <Text style={styles.exportButtonText}>
-              {isExporting ? 'Exporting...' : 'Export as PDF'}
+              {isExporting ? 'Generating...' : 'Generate Report'}
             </Text>
           </TouchableOpacity>
+          
+          {pdfUri && (
+            <TouchableOpacity
+              style={[styles.exportButton, { backgroundColor: '#4CAF50', marginTop: 12 }]}
+              onPress={handleDownloadPDF}
+            >
+              <MaterialIcons name="file-download" size={20} color="#fff" />
+              <Text style={styles.exportButtonText}>
+                Download Report
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isPdfModalVisible}
+        animationType="slide"
+        onRequestClose={() => setIsPdfModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Report Preview</Text>
+            <TouchableOpacity onPress={() => setIsPdfModalVisible(false)}>
+              <MaterialIcons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+          </View>
+          
+          {pdfUri && (
+            <WebView
+              source={{ uri: pdfUri }}
+              style={styles.webview}
+            />
+          )}
+          
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: '#4CAF50' }]}
+              onPress={handleDownloadPDF}
+            >
+              <MaterialIcons name="file-download" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Download</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: '#2196F3' }]}
+              onPress={handleShareReport}
+            >
+              <MaterialIcons name="share" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -614,6 +996,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  tabsContainer: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   kpiContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -648,30 +1048,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  reportTypeContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  summaryCard: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  sectionTitle: {
+  summaryTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  reportTypeScroll: {
-    marginBottom: 8,
-  },
-  reportTypeButton: {
+  summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  reportTypeText: {
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   chartContainer: {
     margin: 16,
@@ -761,6 +1167,46 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   exportButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  webview: {
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  modalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+  },
+  modalButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
