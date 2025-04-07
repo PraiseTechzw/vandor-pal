@@ -25,8 +25,10 @@ type SaleItem = {
   productId: string;
   productName: string;
   quantity: number;
-  price: number;
+  buyingPrice: number;
+  sellingPrice: number;
   total: number;
+  profit: number;
   date: Date;
 };
 
@@ -34,6 +36,7 @@ type Sale = {
   id: string;
   items: SaleItem[];
   total: number;
+  profit: number;
   date: Date;
 };
 
@@ -47,8 +50,10 @@ const mockSales: Sale[] = [
         productId: '1',
         productName: 'Tomatoes',
         quantity: 5,
-        price: 150,
+        buyingPrice: 100,
+        sellingPrice: 150,
         total: 750,
+        profit: 250,
         date: new Date(2023, 5, 15, 10, 30),
       },
       {
@@ -56,12 +61,15 @@ const mockSales: Sale[] = [
         productId: '2',
         productName: 'Onions',
         quantity: 3,
-        price: 200,
+        buyingPrice: 150,
+        sellingPrice: 200,
         total: 600,
+        profit: 150,
         date: new Date(2023, 5, 15, 10, 30),
       },
     ],
     total: 1350,
+    profit: 400,
     date: new Date(2023, 5, 15, 10, 30),
   },
   {
@@ -72,12 +80,15 @@ const mockSales: Sale[] = [
         productId: '3',
         productName: 'Potatoes',
         quantity: 2,
-        price: 220,
+        buyingPrice: 220,
+        sellingPrice: 220,
         total: 440,
+        profit: 0,
         date: new Date(2023, 5, 15, 14, 45),
       },
     ],
     total: 440,
+    profit: 0,
     date: new Date(2023, 5, 15, 14, 45),
   },
   {
@@ -88,8 +99,10 @@ const mockSales: Sale[] = [
         productId: '1',
         productName: 'Tomatoes',
         quantity: 3,
-        price: 150,
+        buyingPrice: 150,
+        sellingPrice: 150,
         total: 450,
+        profit: 0,
         date: new Date(2023, 5, 16, 9, 15),
       },
       {
@@ -97,12 +110,15 @@ const mockSales: Sale[] = [
         productId: '4',
         productName: 'Cabbage',
         quantity: 2,
-        price: 160,
+        buyingPrice: 160,
+        sellingPrice: 160,
         total: 320,
+        profit: 0,
         date: new Date(2023, 5, 16, 9, 15),
       },
     ],
     total: 770,
+    profit: 0,
     date: new Date(2023, 5, 16, 9, 15),
   },
 ];
@@ -119,9 +135,11 @@ export default function SalesScreen() {
   const [selectedProduct, setSelectedProduct] = useState<{
     id: string;
     name: string;
-    price: number;
+    buyingPrice: number;
+    sellingPrice: number;
   } | null>(null);
   const [quantity, setQuantity] = useState('1');
+  const [quickQuantities] = useState(['1', '2', '3', '5', '10']);
 
   // Animation
   React.useEffect(() => {
@@ -154,6 +172,11 @@ export default function SalesScreen() {
     return filteredSales.reduce((total, sale) => total + sale.total, 0);
   }, [filteredSales]);
 
+  // Calculate total profit
+  const totalProfit = useMemo(() => {
+    return filteredSales.reduce((total, sale) => total + sale.profit, 0);
+  }, [filteredSales]);
+
   // Calculate total items sold
   const totalItemsSold = useMemo(() => {
     return filteredSales.reduce((total, sale) => {
@@ -184,13 +207,18 @@ export default function SalesScreen() {
       return;
     }
 
+    const total = selectedProduct.sellingPrice * quantityNum;
+    const profit = (selectedProduct.sellingPrice - selectedProduct.buyingPrice) * quantityNum;
+
     const newItem: SaleItem = {
       id: Date.now().toString(),
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       quantity: quantityNum,
-      price: selectedProduct.price,
-      total: selectedProduct.price * quantityNum,
+      buyingPrice: selectedProduct.buyingPrice,
+      sellingPrice: selectedProduct.sellingPrice,
+      total,
+      profit,
       date: new Date(),
     };
 
@@ -212,17 +240,19 @@ export default function SalesScreen() {
     }
 
     const total = newSaleItems.reduce((sum, item) => sum + item.total, 0);
+    const profit = newSaleItems.reduce((sum, item) => sum + item.profit, 0);
     const newSale: Sale = {
       id: Date.now().toString(),
       items: newSaleItems,
       total,
+      profit,
       date: new Date(),
     };
 
     setSales([newSale, ...sales]);
     setNewSaleItems([]);
     setIsNewSaleVisible(false);
-    Alert.alert('Success', 'Sale completed successfully');
+    Alert.alert('Success', `Sale completed successfully!\nProfit: ${convertAmount(profit)}`);
   };
 
   // Render a sale item
@@ -239,11 +269,16 @@ export default function SalesScreen() {
         </View>
         <View style={styles.saleItemDetails}>
           <Text style={[styles.saleDetail, { color: Colors[colorScheme].text }]}>
-            {item.quantity} x {convertAmount(item.price)}
+            {item.quantity} x {convertAmount(item.sellingPrice)}
           </Text>
-          <Text style={[styles.saleTotal, { color: Colors[colorScheme].text }]}>
-            {convertAmount(item.total)}
-          </Text>
+          <View style={styles.saleItemTotals}>
+            <Text style={[styles.saleTotal, { color: Colors[colorScheme].text }]}>
+              {convertAmount(item.total)}
+            </Text>
+            <Text style={[styles.saleProfit, { color: '#4CAF50' }]}>
+              Profit: {convertAmount(item.profit)}
+            </Text>
+          </View>
         </View>
       </View>
     );
@@ -257,9 +292,14 @@ export default function SalesScreen() {
           <Text style={[styles.saleDate, { color: Colors[colorScheme].text }]}>
             {format(item.date, 'dd MMM yyyy, HH:mm')}
           </Text>
-          <Text style={[styles.saleTotal, { color: Colors[colorScheme].tint }]}>
-            {convertAmount(item.total)}
-          </Text>
+          <View style={styles.saleTotals}>
+            <Text style={[styles.saleTotal, { color: Colors[colorScheme].tint }]}>
+              {convertAmount(item.total)}
+            </Text>
+            <Text style={[styles.saleProfit, { color: '#4CAF50' }]}>
+              Profit: {convertAmount(item.profit)}
+            </Text>
+          </View>
         </View>
         <FlatList
           data={item.items}
@@ -354,13 +394,18 @@ export default function SalesScreen() {
                     {item.productName}
                   </Text>
                   <Text style={[styles.newSaleItemQuantity, { color: Colors[colorScheme].tabIconDefault }]}>
-                    {item.quantity} x {convertAmount(item.price)}
+                    {item.quantity} x {convertAmount(item.sellingPrice)}
                   </Text>
                 </View>
                 <View style={styles.newSaleItemActions}>
-                  <Text style={[styles.newSaleItemTotal, { color: Colors[colorScheme].text }]}>
-                    {convertAmount(item.total)}
-                  </Text>
+                  <View style={styles.newSaleItemTotals}>
+                    <Text style={[styles.newSaleItemTotal, { color: Colors[colorScheme].text }]}>
+                      {convertAmount(item.total)}
+                    </Text>
+                    <Text style={[styles.newSaleItemProfit, { color: '#4CAF50' }]}>
+                      Profit: {convertAmount(item.profit)}
+                    </Text>
+                  </View>
                   <TouchableOpacity onPress={() => handleRemoveSaleItem(item.id)}>
                     <MaterialIcons name="delete" size={20} color="#FF5252" />
                   </TouchableOpacity>
@@ -383,7 +428,8 @@ export default function SalesScreen() {
                     setSelectedProduct({
                       id: '1',
                       name: 'Tomatoes',
-                      price: 150,
+                      buyingPrice: 100,
+                      sellingPrice: 150,
                     });
                   }}
                 >
@@ -396,15 +442,35 @@ export default function SalesScreen() {
                 <Text style={[styles.addItemLabel, { color: Colors[colorScheme].text }]}>
                   Quantity
                 </Text>
-                <TextInput
-                  style={[styles.quantityInput, { 
-                    backgroundColor: Colors[colorScheme].card,
-                    color: Colors[colorScheme].text,
-                  }]}
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  keyboardType="numeric"
-                />
+                <View style={styles.quantityContainer}>
+                  <TextInput
+                    style={[styles.quantityInput, { 
+                      backgroundColor: Colors[colorScheme].card,
+                      color: Colors[colorScheme].text,
+                    }]}
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    keyboardType="numeric"
+                  />
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.quickQuantities}
+                  >
+                    {quickQuantities.map(q => (
+                      <TouchableOpacity
+                        key={q}
+                        style={[
+                          styles.quickQuantityButton,
+                          { backgroundColor: Colors[colorScheme].card }
+                        ]}
+                        onPress={() => setQuantity(q)}
+                      >
+                        <Text style={{ color: Colors[colorScheme].text }}>{q}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
             </View>
             <TouchableOpacity
@@ -417,12 +483,22 @@ export default function SalesScreen() {
           </View>
 
           <View style={styles.newSaleSummary}>
-            <Text style={[styles.newSaleSummaryLabel, { color: Colors[colorScheme].text }]}>
-              Total:
-            </Text>
-            <Text style={[styles.newSaleSummaryValue, { color: Colors[colorScheme].tint }]}>
-              {convertAmount(newSaleItems.reduce((total, item) => total + item.total, 0))}
-            </Text>
+            <View>
+              <Text style={[styles.newSaleSummaryLabel, { color: Colors[colorScheme].text }]}>
+                Total:
+              </Text>
+              <Text style={[styles.newSaleSummaryValue, { color: Colors[colorScheme].tint }]}>
+                {convertAmount(newSaleItems.reduce((total, item) => total + item.total, 0))}
+              </Text>
+            </View>
+            <View>
+              <Text style={[styles.newSaleSummaryLabel, { color: Colors[colorScheme].text }]}>
+                Profit:
+              </Text>
+              <Text style={[styles.newSaleSummaryValue, { color: '#4CAF50' }]}>
+                {convertAmount(newSaleItems.reduce((total, item) => total + item.profit, 0))}
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -472,6 +548,14 @@ export default function SalesScreen() {
           </Text>
           <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
             {convertAmount(totalSales)}
+          </Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+          <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+            Total Profit
+          </Text>
+          <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+            {convertAmount(totalProfit)}
           </Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
@@ -753,6 +837,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  saleItemTotals: {
+    alignItems: 'flex-end',
+  },
+  saleProfit: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  saleTotals: {
+    alignItems: 'flex-end',
+  },
+  quantityContainer: {
+    flex: 1,
+  },
+  quickQuantities: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  quickQuantityButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  newSaleItemTotals: {
+    alignItems: 'flex-end',
+  },
+  newSaleItemProfit: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });
 
