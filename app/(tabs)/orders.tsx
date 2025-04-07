@@ -1,132 +1,195 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions } from 'react-native';
+"use client"
+
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  Dimensions,
+  TouchableOpacity,
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { MaterialIcons } from '@expo/vector-icons';
-import React from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 
-// Mock data for orders
-const orders = [
-  {
-    id: '1',
-    items: [
-      { name: 'Product A', quantity: 2, price: 25.99 },
-      { name: 'Product B', quantity: 1, price: 15.50 },
-    ],
-    total: 67.48,
-    status: 'pending',
-    deliveryAddress: 'Street Vendor - Main Market',
-    date: '2024-04-06',
-  },
-  {
-    id: '2',
-    items: [
-      { name: 'Product C', quantity: 3, price: 10.00 },
-      { name: 'Product D', quantity: 2, price: 20.00 },
-    ],
-    total: 70.00,
-    status: 'completed',
-    deliveryAddress: 'Street Vendor - City Center',
-    date: '2024-04-05',
-  },
-];
+const { width } = Dimensions.get('window');
 
 export default function OrdersScreen() {
-  const colorScheme = useColorScheme();
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width < 360;
+  const colorScheme = useColorScheme() ?? 'light';
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending':
-        return '#FF9800';
-      case 'completed':
-        return '#4CAF50';
-      default:
-        return '#666';
-    }
-  };
+  useEffect(() => {
+    // Fade in animation
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
 
-  const renderOrder = ({ item }) => (
-    <View style={[styles.orderCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-      <View style={styles.orderHeader}>
-        <View style={styles.orderInfo}>
-          <Text style={[styles.orderDate, { color: Colors[colorScheme ?? 'light'].text }]}>
-            {item.date}
-          </Text>
-          <Text style={[styles.deliveryAddress, { color: Colors[colorScheme ?? 'light'].text }]}>
-            {item.deliveryAddress}
-          </Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
-      </View>
+    // Scale animation
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 600,
+      easing: Easing.out(Easing.back(1.5)),
+      useNativeDriver: true,
+    }).start();
 
-      <View style={styles.itemsContainer}>
-        {item.items.map((product, index) => (
-          <View key={index} style={styles.itemRow}>
-            <Text style={[styles.itemName, { color: Colors[colorScheme ?? 'light'].text }]}>
-              {product.name}
-            </Text>
-            <View style={styles.itemDetails}>
-              <Text style={[styles.itemQuantity, { color: Colors[colorScheme ?? 'light'].text }]}>
-                {product.quantity}x
-              </Text>
-              <Text style={[styles.itemPrice, { color: Colors[colorScheme ?? 'light'].text }]}>
-                ${product.price.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
+    // Rotation animation
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 20000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
 
-      <View style={styles.orderFooter}>
-        <Text style={[styles.totalLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Total:
-        </Text>
-        <Text style={[styles.totalAmount, { color: Colors[colorScheme ?? 'light'].text }]}>
-          ${item.total.toFixed(2)}
-        </Text>
-      </View>
+    // Floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sine),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sine),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
-      {item.status === 'pending' && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-            onPress={() => handleCompleteOrder(item.id)}
-          >
-            <Text style={styles.actionButtonText}>Complete Order</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
-  const handleCompleteOrder = (orderId) => {
-    // TODO: Implement order completion logic
-    console.log('Complete order:', orderId);
+  const float = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -15],
+  });
+
+  const handleNotifyMe = () => {
+    // In a real app, this would subscribe the user to notifications
+    alert('You will be notified when the Orders feature is available!');
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Orders
-        </Text>
-        <TouchableOpacity style={styles.filterButton}>
-          <MaterialIcons name="filter-list" size={24} color="#2196F3" />
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+      <LinearGradient
+        colors={['#4CAF50', '#388E3C', '#1B5E20']}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>Orders</Text>
+      </LinearGradient>
 
-      <FlatList
-        data={orders}
-        renderItem={renderOrder}
-        keyExtractor={item => item.id}
-        contentContainerStyle={[
-          styles.listContainer,
-          { paddingHorizontal: isSmallScreen ? 8 : 16 }
-        ]}
-      />
+      <View style={styles.content}>
+        <Animated.View
+          style={[
+            styles.illustrationContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: float },
+              ],
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.illustration,
+              {
+                transform: [{ rotate: spin }],
+              },
+            ]}
+          >
+            <MaterialIcons name="shopping-cart" size={120} color="#4CAF50" />
+          </Animated.View>
+          <View style={styles.illustrationDetails}>
+            <MaterialIcons name="local-shipping" size={40} color="#4CAF50" />
+            <MaterialIcons name="inventory" size={40} color="#4CAF50" />
+            <MaterialIcons name="payment" size={40} color="#4CAF50" />
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.textContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: Animated.multiply(float, 0.5) }],
+            },
+          ]}
+        >
+          <Text style={[styles.title, { color: Colors[colorScheme].text }]}>
+            Coming Soon!
+          </Text>
+          <Text style={[styles.subtitle, { color: Colors[colorScheme].tabIconDefault }]}>
+            We're working on something exciting
+          </Text>
+          <Text style={[styles.description, { color: Colors[colorScheme].text }]}>
+            The Orders feature will allow you to manage customer orders, track deliveries, and process payments all in one place.
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.featuresContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: Animated.multiply(float, 0.3) }],
+            },
+          ]}
+        >
+          <View style={[styles.featureItem, { backgroundColor: Colors[colorScheme].card }]}>
+            <MaterialIcons name="shopping-cart" size={24} color="#4CAF50" />
+            <Text style={[styles.featureText, { color: Colors[colorScheme].text }]}>
+              Order Management
+            </Text>
+          </View>
+          <View style={[styles.featureItem, { backgroundColor: Colors[colorScheme].card }]}>
+            <MaterialIcons name="local-shipping" size={24} color="#4CAF50" />
+            <Text style={[styles.featureText, { color: Colors[colorScheme].text }]}>
+              Delivery Tracking
+            </Text>
+          </View>
+          <View style={[styles.featureItem, { backgroundColor: Colors[colorScheme].card }]}>
+            <MaterialIcons name="payment" size={24} color="#4CAF50" />
+            <Text style={[styles.featureText, { color: Colors[colorScheme].text }]}>
+              Payment Processing
+            </Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.buttonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: Animated.multiply(float, 0.2) }],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.notifyButton, { backgroundColor: Colors[colorScheme].tint }]}
+            onPress={handleNotifyMe}
+          >
+            <MaterialIcons name="notifications" size={20} color="#fff" />
+            <Text style={styles.notifyButtonText}>Notify Me</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -136,114 +199,105 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingBottom: 20,
     alignItems: 'center',
-    padding: 16,
   },
-  title: {
+  headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
   },
-  filterButton: {
-    padding: 8,
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
-  listContainer: {
-    paddingVertical: 16,
+  illustrationContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 40,
+    width: width * 0.8,
+    height: width * 0.8,
   },
-  orderCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
+  illustration: {
+    width: width * 0.6,
+    height: width * 0.6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: width * 0.3,
+  },
+  illustrationDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 20,
+  },
+  textContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 18,
+    marginBottom: 15,
+  },
+  description: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  featuresContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 30,
+  },
+  featureItem: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 15,
     borderRadius: 12,
+    marginHorizontal: 5,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  orderInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  orderDate: {
+  featureText: {
     fontSize: 14,
-    marginBottom: 4,
-  },
-  deliveryAddress: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'capitalize',
-  },
-  itemsContainer: {
-    marginBottom: 16,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  itemName: {
-    fontSize: 14,
-    flex: 1,
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  itemQuantity: {
-    fontSize: 14,
-  },
-  itemPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 12,
+    fontWeight: '500',
     marginTop: 8,
+    textAlign: 'center',
   },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  actionButtons: {
-    marginTop: 16,
-  },
-  actionButton: {
-    padding: 12,
-    borderRadius: 8,
+  buttonContainer: {
+    width: '100%',
     alignItems: 'center',
   },
-  actionButtonText: {
+  notifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  notifyButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
 }); 
