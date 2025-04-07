@@ -11,10 +11,7 @@ export default function RootLayout() {
     <CurrencyProvider>
       <Stack
         screenOptions={{
-          headerStyle: {
-            backgroundColor: Colors[colorScheme ?? 'light'].background,
-          },
-          headerTintColor: Colors[colorScheme ?? 'light'].text,
+          headerShown: false,
         }}
       >
         <Stack.Screen
