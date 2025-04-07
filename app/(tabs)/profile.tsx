@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { MaterialIcons } from '@expo/vector-icons';
-import React from 'react';
+import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
+  const [isOnline, setIsOnline] = useState(true);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
@@ -22,6 +23,22 @@ export default function ProfileScreen() {
             <Text style={[styles.profileEmail, { color: Colors[colorScheme ?? 'light'].text }]}>
               vendor@example.com
             </Text>
+            <View style={styles.statusContainer}>
+              <Text style={[styles.statusLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
+                Status:
+              </Text>
+              <View style={styles.statusToggle}>
+                <Text style={[styles.statusText, { color: isOnline ? '#4CAF50' : '#FF5252' }]}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+                <Switch
+                  value={isOnline}
+                  onValueChange={setIsOnline}
+                  trackColor={{ false: '#767577', true: '#4CAF50' }}
+                  thumbColor={isOnline ? '#fff' : '#f4f3f4'}
+                />
+              </View>
+            </View>
           </View>
         </View>
       </View>
@@ -37,7 +54,7 @@ export default function ProfileScreen() {
               Business Name
             </Text>
             <Text style={[styles.infoValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              My Business
+              My Street Food
             </Text>
           </View>
         </View>
@@ -45,10 +62,10 @@ export default function ProfileScreen() {
           <MaterialIcons name="location-on" size={24} color="#2196F3" />
           <View style={styles.infoText}>
             <Text style={[styles.infoLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
-              Address
+              Current Location
             </Text>
             <Text style={[styles.infoValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              123 Business St, City
+              Central Park, North Entrance
             </Text>
           </View>
         </View>
@@ -69,6 +86,86 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
           Settings
         </Text>
+        
+        {/* Business Settings */}
+        <Text style={[styles.settingCategory, { color: Colors[colorScheme ?? 'light'].text }]}>
+          Business Settings
+        </Text>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <FontAwesome5 name="map-marked-alt" size={22} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Manage Locations
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="access-time" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Business Hours
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="restaurant-menu" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Menu Management
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <FontAwesome5 name="money-bill-wave" size={20} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Pricing & Discounts
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="payment" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Payment Methods
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        {/* Order Settings */}
+        <Text style={[styles.settingCategory, { color: Colors[colorScheme ?? 'light'].text, marginTop: 20 }]}>
+          Order Management
+        </Text>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="receipt" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Order History
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="people" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Customer Management
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="loyalty" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Loyalty Program
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        {/* App Settings */}
+        <Text style={[styles.settingCategory, { color: Colors[colorScheme ?? 'light'].text, marginTop: 20 }]}>
+          App Settings
+        </Text>
+        
         <TouchableOpacity style={styles.settingItem}>
           <MaterialIcons name="notifications" size={24} color="#2196F3" />
           <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
@@ -76,6 +173,36 @@ export default function ProfileScreen() {
           </Text>
           <MaterialIcons name="chevron-right" size={24} color="#666" />
         </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <Ionicons name="language" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Language
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="color-lens" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Appearance
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        {/* Account Settings */}
+        <Text style={[styles.settingCategory, { color: Colors[colorScheme ?? 'light'].text, marginTop: 20 }]}>
+          Account
+        </Text>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="account-circle" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Profile Settings
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
         <TouchableOpacity style={styles.settingItem}>
           <MaterialIcons name="security" size={24} color="#2196F3" />
           <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
@@ -83,6 +210,23 @@ export default function ProfileScreen() {
           </Text>
           <MaterialIcons name="chevron-right" size={24} color="#666" />
         </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="attach-money" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Earnings & Payouts
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.settingItem}>
+          <MaterialIcons name="description" size={24} color="#2196F3" />
+          <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            Permits & Licenses
+          </Text>
+          <MaterialIcons name="chevron-right" size={24} color="#666" />
+        </TouchableOpacity>
+        
         <TouchableOpacity style={styles.settingItem}>
           <MaterialIcons name="help" size={24} color="#2196F3" />
           <Text style={[styles.settingText, { color: Colors[colorScheme ?? 'light'].text }]}>
@@ -127,6 +271,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
   },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  statusLabel: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  statusToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
   section: {
     margin: 16,
     padding: 16,
@@ -141,6 +303,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
+  },
+  settingCategory: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#2196F3',
   },
   infoItem: {
     flexDirection: 'row',
@@ -180,4 +348,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-}); 
+});
