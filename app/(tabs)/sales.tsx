@@ -1,195 +1,499 @@
 "use client"
 
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions } from "react-native"
-import { useColorScheme } from "react-native"
-import { MaterialIcons } from "@expo/vector-icons"
-import { useState } from "react"
-import { Colors } from "@/constants/Colors"
-import { LinearGradient } from "expo-linear-gradient"
-import React from "react"
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ScrollView,
+  Animated,
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
+import { Colors } from '@/constants/Colors';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import { format } from 'date-fns';
 
-const { width } = Dimensions.get("window")
+// Types
+type SaleItem = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  total: number;
+  date: Date;
+};
 
-type Transaction = {
-  id: string
-  transactionId: string
-  amount: number
-  items: number
-  paymentMethod: "cash" | "card" | "mobile"
-  status: "completed" | "pending" | "refunded"
-  timestamp: string
-}
+type Sale = {
+  id: string;
+  items: SaleItem[];
+  total: number;
+  date: Date;
+};
 
-const mockTransactions: Transaction[] = [
+// Mock data
+const mockSales: Sale[] = [
   {
-    id: "1",
-    transactionId: "TRX-001",
-    amount: 45.99,
-    items: 3,
-    paymentMethod: "card",
-    status: "completed",
-    timestamp: "2 mins ago",
+    id: '1',
+    items: [
+      {
+        id: '1-1',
+        productId: '1',
+        productName: 'Tomatoes',
+        quantity: 5,
+        price: 150,
+        total: 750,
+        date: new Date(2023, 5, 15, 10, 30),
+      },
+      {
+        id: '1-2',
+        productId: '2',
+        productName: 'Onions',
+        quantity: 3,
+        price: 200,
+        total: 600,
+        date: new Date(2023, 5, 15, 10, 30),
+      },
+    ],
+    total: 1350,
+    date: new Date(2023, 5, 15, 10, 30),
   },
   {
-    id: "2",
-    transactionId: "TRX-002",
-    amount: 120.5,
-    items: 5,
-    paymentMethod: "cash",
-    status: "completed",
-    timestamp: "15 mins ago",
+    id: '2',
+    items: [
+      {
+        id: '2-1',
+        productId: '3',
+        productName: 'Potatoes',
+        quantity: 2,
+        price: 220,
+        total: 440,
+        date: new Date(2023, 5, 15, 14, 45),
+      },
+    ],
+    total: 440,
+    date: new Date(2023, 5, 15, 14, 45),
   },
   {
-    id: "3",
-    transactionId: "TRX-003",
-    amount: 89.99,
-    items: 4,
-    paymentMethod: "mobile",
-    status: "pending",
-    timestamp: "1 hour ago",
+    id: '3',
+    items: [
+      {
+        id: '3-1',
+        productId: '1',
+        productName: 'Tomatoes',
+        quantity: 3,
+        price: 150,
+        total: 450,
+        date: new Date(2023, 5, 16, 9, 15),
+      },
+      {
+        id: '3-2',
+        productId: '4',
+        productName: 'Cabbage',
+        quantity: 2,
+        price: 160,
+        total: 320,
+        date: new Date(2023, 5, 16, 9, 15),
+      },
+    ],
+    total: 770,
+    date: new Date(2023, 5, 16, 9, 15),
   },
-]
+];
 
 export default function SalesScreen() {
-  const colorScheme = useColorScheme() ?? "light"
-  const [selectedTimeframe, setSelectedTimeframe] = useState("today")
+  const colorScheme = useColorScheme() ?? 'light';
+  const { currency, convertAmount } = useCurrency();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [sales, setSales] = useState<Sale[]>(mockSales);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [isNewSaleVisible, setIsNewSaleVisible] = useState(false);
+  const [newSaleItems, setNewSaleItems] = useState<SaleItem[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<{
+    id: string;
+    name: string;
+    price: number;
+  } | null>(null);
+  const [quantity, setQuantity] = useState('1');
 
-  const timeframes = ["today", "week", "month", "year"]
+  // Animation
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
-  const getStatusColor = (status: Transaction["status"]) => {
-    switch (status) {
-      case "completed":
-        return "#4CAF50"
-      case "pending":
-        return "#FFC107"
-      case "refunded":
-        return "#FF5722"
-      default:
-        return Colors[colorScheme].text
+  // Filter sales by date and search query
+  const filteredSales = useMemo(() => {
+    return sales.filter(sale => {
+      const matchesDate = !selectedDate || 
+        (sale.date.getDate() === selectedDate.getDate() &&
+         sale.date.getMonth() === selectedDate.getMonth() &&
+         sale.date.getFullYear() === selectedDate.getFullYear());
+      
+      const matchesSearch = !searchQuery || 
+        sale.items.some(item => 
+          item.productName.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      
+      return matchesDate && matchesSearch;
+    });
+  }, [sales, selectedDate, searchQuery]);
+
+  // Calculate total sales
+  const totalSales = useMemo(() => {
+    return filteredSales.reduce((total, sale) => total + sale.total, 0);
+  }, [filteredSales]);
+
+  // Calculate total items sold
+  const totalItemsSold = useMemo(() => {
+    return filteredSales.reduce((total, sale) => {
+      return total + sale.items.reduce((itemTotal, item) => itemTotal + item.quantity, 0);
+    }, 0);
+  }, [filteredSales]);
+
+  // Get unique dates from sales
+  const uniqueDates = useMemo(() => {
+    const dates = new Set<string>();
+    sales.forEach(sale => {
+      const dateStr = format(sale.date, 'yyyy-MM-dd');
+      dates.add(dateStr);
+    });
+    return Array.from(dates).sort().reverse();
+  }, [sales]);
+
+  // Handle adding a new sale item
+  const handleAddSaleItem = () => {
+    if (!selectedProduct) {
+      Alert.alert('Error', 'Please select a product');
+      return;
     }
-  }
 
-  const getPaymentIcon = (method: Transaction["paymentMethod"]) => {
-    switch (method) {
-      case "card":
-        return "credit-card"
-      case "cash":
-        return "money"
-      case "mobile":
-        return "smartphone"
-      default:
-        return "payment"
+    const quantityNum = parseInt(quantity);
+    if (isNaN(quantityNum) || quantityNum <= 0) {
+      Alert.alert('Error', 'Please enter a valid quantity');
+      return;
     }
-  }
 
-  const renderTransaction = ({ item }: { item: Transaction }) => (
-    <TouchableOpacity
-      style={[styles.transactionCard, { backgroundColor: Colors[colorScheme].card }]}
-      activeOpacity={0.8}
-    >
-      <View style={styles.transactionHeader}>
-        <View style={styles.transactionInfo}>
-          <MaterialIcons name="receipt" size={24} color={Colors[colorScheme].tint} />
-          <Text style={[styles.transactionId, { color: Colors[colorScheme].text }]}>{item.transactionId}</Text>
+    const newItem: SaleItem = {
+      id: Date.now().toString(),
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      quantity: quantityNum,
+      price: selectedProduct.price,
+      total: selectedProduct.price * quantityNum,
+      date: new Date(),
+    };
+
+    setNewSaleItems([...newSaleItems, newItem]);
+    setSelectedProduct(null);
+    setQuantity('1');
+  };
+
+  // Handle removing a sale item
+  const handleRemoveSaleItem = (itemId: string) => {
+    setNewSaleItems(newSaleItems.filter(item => item.id !== itemId));
+  };
+
+  // Handle completing a sale
+  const handleCompleteSale = () => {
+    if (newSaleItems.length === 0) {
+      Alert.alert('Error', 'Please add at least one item to the sale');
+      return;
+    }
+
+    const total = newSaleItems.reduce((sum, item) => sum + item.total, 0);
+    const newSale: Sale = {
+      id: Date.now().toString(),
+      items: newSaleItems,
+      total,
+      date: new Date(),
+    };
+
+    setSales([newSale, ...sales]);
+    setNewSaleItems([]);
+    setIsNewSaleVisible(false);
+    Alert.alert('Success', 'Sale completed successfully');
+  };
+
+  // Render a sale item
+  const renderSaleItem = ({ item }: { item: SaleItem }) => {
+    return (
+      <View style={[styles.saleItem, { backgroundColor: Colors[colorScheme].card }]}>
+        <View style={styles.saleItemHeader}>
+          <Text style={[styles.productName, { color: Colors[colorScheme].text }]}>
+            {item.productName}
+          </Text>
+          <Text style={[styles.saleTime, { color: Colors[colorScheme].tabIconDefault }]}>
+            {format(item.date, 'HH:mm')}
+          </Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+        <View style={styles.saleItemDetails}>
+          <Text style={[styles.saleDetail, { color: Colors[colorScheme].text }]}>
+            {item.quantity} x {convertAmount(item.price)}
+          </Text>
+          <Text style={[styles.saleTotal, { color: Colors[colorScheme].text }]}>
+            {convertAmount(item.total)}
+          </Text>
         </View>
       </View>
+    );
+  };
 
-      <View style={styles.transactionDetails}>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: Colors[colorScheme].tabIconDefault }]}>Amount</Text>
-          <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>${item.amount.toFixed(2)}</Text>
+  // Render a sale
+  const renderSale = ({ item }: { item: Sale }) => {
+    return (
+      <View style={[styles.saleCard, { backgroundColor: Colors[colorScheme].card }]}>
+        <View style={styles.saleHeader}>
+          <Text style={[styles.saleDate, { color: Colors[colorScheme].text }]}>
+            {format(item.date, 'dd MMM yyyy, HH:mm')}
+          </Text>
+          <Text style={[styles.saleTotal, { color: Colors[colorScheme].tint }]}>
+            {convertAmount(item.total)}
+          </Text>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: Colors[colorScheme].tabIconDefault }]}>Items</Text>
-          <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>{item.items}</Text>
+        <FlatList
+          data={item.items}
+          keyExtractor={item => item.id}
+          renderItem={renderSaleItem}
+          scrollEnabled={false}
+        />
+      </View>
+    );
+  };
+
+  // Render date filter
+  const renderDateFilter = () => {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.dateFilter}
+      >
+        <TouchableOpacity
+          style={[
+            styles.dateButton,
+            !selectedDate && styles.selectedDateButton,
+            { backgroundColor: !selectedDate ? Colors[colorScheme].tint : Colors[colorScheme].card },
+          ]}
+          onPress={() => setSelectedDate(null)}
+        >
+          <Text
+            style={[
+              styles.dateButtonText,
+              !selectedDate && styles.selectedDateButtonText,
+              { color: !selectedDate ? '#fff' : Colors[colorScheme].text },
+            ]}
+          >
+            All
+          </Text>
+        </TouchableOpacity>
+        {uniqueDates.map(dateStr => {
+          const date = new Date(dateStr);
+          const isSelected = selectedDate && 
+            date.getDate() === selectedDate.getDate() &&
+            date.getMonth() === selectedDate.getMonth() &&
+            date.getFullYear() === selectedDate.getFullYear();
+          
+          return (
+            <TouchableOpacity
+              key={dateStr}
+              style={[
+                styles.dateButton,
+                isSelected && styles.selectedDateButton,
+                { backgroundColor: isSelected ? Colors[colorScheme].tint : Colors[colorScheme].card },
+              ]}
+              onPress={() => setSelectedDate(date)}
+            >
+              <Text
+                style={[
+                  styles.dateButtonText,
+                  isSelected && styles.selectedDateButtonText,
+                  { color: isSelected ? '#fff' : Colors[colorScheme].text },
+                ]}
+              >
+                {format(date, 'dd MMM')}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    );
+  };
+
+  // Render new sale form
+  const renderNewSaleForm = () => {
+    if (!isNewSaleVisible) return null;
+
+    return (
+      <View style={[styles.newSaleForm, { backgroundColor: Colors[colorScheme].background }]}>
+        <View style={styles.newSaleHeader}>
+          <Text style={[styles.newSaleTitle, { color: Colors[colorScheme].text }]}>
+            New Sale
+          </Text>
+          <TouchableOpacity onPress={() => setIsNewSaleVisible(false)}>
+            <MaterialIcons name="close" size={24} color={Colors[colorScheme].text} />
+          </TouchableOpacity>
         </View>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: Colors[colorScheme].tabIconDefault }]}>Payment</Text>
-          <View style={styles.paymentMethod}>
-            <MaterialIcons name={getPaymentIcon(item.paymentMethod)} size={16} color={Colors[colorScheme].tint} />
-            <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>{item.paymentMethod}</Text>
+
+        <View style={styles.newSaleContent}>
+          <View style={styles.newSaleItems}>
+            {newSaleItems.map(item => (
+              <View key={item.id} style={[styles.newSaleItem, { backgroundColor: Colors[colorScheme].card }]}>
+                <View style={styles.newSaleItemInfo}>
+                  <Text style={[styles.newSaleItemName, { color: Colors[colorScheme].text }]}>
+                    {item.productName}
+                  </Text>
+                  <Text style={[styles.newSaleItemQuantity, { color: Colors[colorScheme].tabIconDefault }]}>
+                    {item.quantity} x {convertAmount(item.price)}
+                  </Text>
+                </View>
+                <View style={styles.newSaleItemActions}>
+                  <Text style={[styles.newSaleItemTotal, { color: Colors[colorScheme].text }]}>
+                    {convertAmount(item.total)}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleRemoveSaleItem(item.id)}>
+                    <MaterialIcons name="delete" size={20} color="#FF5252" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
           </View>
-        </View>
-      </View>
 
-      <View style={styles.transactionFooter}>
-        <Text style={[styles.timestamp, { color: Colors[colorScheme].tabIconDefault }]}>{item.timestamp}</Text>
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton}>
-            <MaterialIcons name="print" size={20} color={Colors[colorScheme].tint} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <MaterialIcons name="share" size={20} color={Colors[colorScheme].tint} />
+          <View style={styles.addItemForm}>
+            <View style={styles.addItemInputs}>
+              <View style={styles.addItemInput}>
+                <Text style={[styles.addItemLabel, { color: Colors[colorScheme].text }]}>
+                  Product
+                </Text>
+                <TouchableOpacity
+                  style={[styles.productSelector, { backgroundColor: Colors[colorScheme].card }]}
+                  onPress={() => {
+                    // In a real app, this would open a product selector
+                    // For now, we'll just simulate selecting a product
+                    setSelectedProduct({
+                      id: '1',
+                      name: 'Tomatoes',
+                      price: 150,
+                    });
+                  }}
+                >
+                  <Text style={{ color: Colors[colorScheme].text }}>
+                    {selectedProduct ? selectedProduct.name : 'Select Product'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.addItemInput}>
+                <Text style={[styles.addItemLabel, { color: Colors[colorScheme].text }]}>
+                  Quantity
+                </Text>
+                <TextInput
+                  style={[styles.quantityInput, { 
+                    backgroundColor: Colors[colorScheme].card,
+                    color: Colors[colorScheme].text,
+                  }]}
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.addItemButton, { backgroundColor: Colors[colorScheme].tint }]}
+              onPress={handleAddSaleItem}
+            >
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text style={styles.addItemButtonText}>Add Item</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.newSaleSummary}>
+            <Text style={[styles.newSaleSummaryLabel, { color: Colors[colorScheme].text }]}>
+              Total:
+            </Text>
+            <Text style={[styles.newSaleSummaryValue, { color: Colors[colorScheme].tint }]}>
+              {convertAmount(newSaleItems.reduce((total, item) => total + item.total, 0))}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.completeSaleButton, { backgroundColor: Colors[colorScheme].tint }]}
+            onPress={handleCompleteSale}
+          >
+            <Text style={styles.completeSaleButtonText}>Complete Sale</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </TouchableOpacity>
-  )
+    );
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
-      <LinearGradient colors={[Colors[colorScheme].tint, Colors[colorScheme].background]} style={styles.header}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <LinearGradient
+        colors={['#4CAF50', '#388E3C', '#1B5E20']}
+        style={styles.header}
+      >
         <View style={styles.headerContent}>
-          <Text style={[styles.title, { color: "#fff" }]}>Sales Dashboard</Text>
-          <Text style={[styles.subtitle, { color: "#fff" }]}>Track your daily business</Text>
+          <View style={styles.searchContainer}>
+            <MaterialIcons name="search" size={24} color="#fff" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search sales..."
+              placeholderTextColor="rgba(255, 255, 255, 0.7)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.newSaleButton}
+            onPress={() => setIsNewSaleVisible(true)}
+          >
+            <MaterialIcons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
+
+        {renderDateFilter()}
       </LinearGradient>
 
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].card }]}>
-          <Text style={[styles.statValue, { color: Colors[colorScheme].text }]}>$2,345</Text>
-          <Text style={[styles.statLabel, { color: Colors[colorScheme].tabIconDefault }]}>Today's Sales</Text>
+      <View style={styles.summaryContainer}>
+        <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+          <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+            Total Sales
+          </Text>
+          <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+            {convertAmount(totalSales)}
+          </Text>
         </View>
-        <View style={[styles.statCard, { backgroundColor: Colors[colorScheme].card }]}>
-          <Text style={[styles.statValue, { color: Colors[colorScheme].text }]}>45</Text>
-          <Text style={[styles.statLabel, { color: Colors[colorScheme].tabIconDefault }]}>Transactions</Text>
+        <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme].card }]}>
+          <Text style={[styles.summaryLabel, { color: Colors[colorScheme].tabIconDefault }]}>
+            Items Sold
+          </Text>
+          <Text style={[styles.summaryValue, { color: Colors[colorScheme].text }]}>
+            {totalItemsSold}
+          </Text>
         </View>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeframeContainer}>
-        {timeframes.map((timeframe) => (
-          <TouchableOpacity
-            key={timeframe}
-            style={[
-              styles.timeframeButton,
-              {
-                backgroundColor: selectedTimeframe === timeframe ? Colors[colorScheme].tint : Colors[colorScheme].card,
-              },
-            ]}
-            onPress={() => setSelectedTimeframe(timeframe)}
-          >
-            <Text
-              style={[
-                styles.timeframeText,
-                { color: selectedTimeframe === timeframe ? "#fff" : Colors[colorScheme].text },
-              ]}
-            >
-              {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={styles.transactionsHeader}>
-        <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>Recent Transactions</Text>
-        <TouchableOpacity style={styles.addButton}>
-          <MaterialIcons name="add" size={20} color="#fff" />
-          <Text style={styles.addButtonText}>New Sale</Text>
-        </TouchableOpacity>
       </View>
 
       <FlatList
-        data={mockTransactions}
-        renderItem={renderTransaction}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.transactionsList}
-        showsVerticalScrollIndicator={false}
+        data={filteredSales}
+        keyExtractor={item => item.id}
+        renderItem={renderSale}
+        contentContainerStyle={styles.listContent}
       />
-    </View>
-  )
+
+      {renderNewSaleForm()}
+    </Animated.View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -197,162 +501,258 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 20,
     paddingTop: 50,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: 16,
   },
   headerContent: {
-    marginTop: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  subtitle: {
-    fontSize: 16,
-    marginTop: 4,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 16,
-    marginTop: -30,
-  },
-  statCard: {
-    flex: 1,
-    marginHorizontal: 8,
-    padding: 16,
-    borderRadius: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  statLabel: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  timeframeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  timeframeButton: {
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    padding: 8,
+    fontSize: 16,
+  },
+  newSaleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateFilter: {
+    paddingHorizontal: 16,
+  },
+  dateButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
   },
-  timeframeText: {
+  selectedDateButton: {
+    backgroundColor: '#fff',
+  },
+  dateButtonText: {
+    color: '#fff',
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: '500',
   },
-  transactionsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  selectedDateButtonText: {
+    color: '#4CAF50',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  addButtonText: {
-    color: "#fff",
-    marginLeft: 4,
-    fontWeight: "500",
-  },
-  transactionsList: {
+  summaryContainer: {
+    flexDirection: 'row',
     padding: 16,
+    gap: 16,
   },
-  transactionCard: {
+  summaryCard: {
+    flex: 1,
     padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 12,
     elevation: 2,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  transactionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  summaryLabel: {
+    fontSize: 14,
+    marginBottom: 4,
   },
-  transactionInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
-  transactionId: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 8,
+  listContent: {
+    padding: 16,
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  saleCard: {
     borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  statusText: {
-    color: "#fff",
+  saleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  saleDate: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  saleTotal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  saleItem: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  saleItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  saleTime: {
     fontSize: 12,
-    fontWeight: "bold",
   },
-  transactionDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
+  saleItemDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  detailItem: {
+  saleDetail: {
+    fontSize: 14,
+  },
+  newSaleForm: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+  },
+  newSaleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  newSaleTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  newSaleContent: {
     flex: 1,
   },
-  detailLabel: {
-    fontSize: 12,
+  newSaleItems: {
+    marginBottom: 20,
   },
-  detailValue: {
+  newSaleItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  newSaleItemInfo: {
+    flex: 1,
+  },
+  newSaleItemName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  newSaleItemQuantity: {
     fontSize: 14,
-    fontWeight: "500",
-    marginTop: 4,
   },
-  paymentMethod: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
+  newSaleItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  transactionFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 16,
-    paddingTop: 16,
+  newSaleItemTotal: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  addItemForm: {
+    marginBottom: 20,
+  },
+  addItemInputs: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  addItemInput: {
+    flex: 1,
+  },
+  addItemLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  productSelector: {
+    padding: 12,
+    borderRadius: 8,
+  },
+  quantityInput: {
+    padding: 12,
+    borderRadius: 8,
+  },
+  addItemButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  addItemButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  newSaleSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.1)",
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
   },
-  timestamp: {
-    fontSize: 12,
+  newSaleSummaryLabel: {
+    fontSize: 18,
+    fontWeight: '500',
   },
-  actionButtons: {
-    flexDirection: "row",
+  newSaleSummaryValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
-  actionButton: {
-    padding: 4,
-    marginLeft: 8,
+  completeSaleButton: {
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-})
+  completeSaleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
 
