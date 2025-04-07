@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
+import { Colors } from '@/constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import React from 'react';
 
 // Mock data for orders
 const orders = [

@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
-
+import React from 'react';
+import { Colors } from '@/constants/Colors';
 export default function TabLayout() {
   const colorScheme = useColorScheme() ?? 'light';
 
@@ -24,7 +24,7 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color }: { color: string }) => (
             <MaterialIcons name="dashboard" size={24} color={color} />
           ),
         }}

@@ -1,47 +1,105 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Dimensions } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Colors } from '@/constants/Colors';
 
-// Mock data for inventory items
-const inventoryItems = [
-  { id: '1', name: 'Product A', stock: 45, price: 29.99, lowStock: false },
-  { id: '2', name: 'Product B', stock: 12, price: 49.99, lowStock: true },
-  { id: '3', name: 'Product C', stock: 78, price: 19.99, lowStock: false },
-  { id: '4', name: 'Product D', stock: 5, price: 99.99, lowStock: true },
+const { width } = Dimensions.get('window');
+
+type Product = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  lowStockThreshold: number;
+  lastUpdated: string;
+};
+
+const mockProducts: Product[] = [
+  {
+    id: '1',
+    name: 'Premium Coffee Beans',
+    category: 'Beverages',
+    price: 24.99,
+    stock: 45,
+    lowStockThreshold: 20,
+    lastUpdated: '2 hours ago',
+  },
+  {
+    id: '2',
+    name: 'Organic Tea Leaves',
+    category: 'Beverages',
+    price: 18.99,
+    stock: 15,
+    lowStockThreshold: 20,
+    lastUpdated: '1 day ago',
+  },
+  {
+    id: '3',
+    name: 'Artisan Bread',
+    category: 'Bakery',
+    price: 5.99,
+    stock: 30,
+    lowStockThreshold: 15,
+    lastUpdated: '3 hours ago',
+  },
 ];
 
 export default function InventoryScreen() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const renderItem = ({ item }) => (
-    <View style={[styles.itemCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-      <View style={styles.itemHeader}>
-        <Text style={[styles.itemName, { color: Colors[colorScheme ?? 'light'].text }]}>
+  const categories = Array.from(new Set(mockProducts.map(p => p.category)));
+
+  const filteredProducts = mockProducts.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory || product.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const renderProduct = ({ item }: { item: Product }) => (
+    <TouchableOpacity
+      style={[styles.productCard, { backgroundColor: Colors[colorScheme].card }]}
+      activeOpacity={0.8}
+    >
+      <View style={styles.productHeader}>
+        <Text style={[styles.productName, { color: Colors[colorScheme].text }]}>
           {item.name}
         </Text>
-        {item.lowStock && (
-          <MaterialIcons name="warning" size={20} color="#FF9800" />
-        )}
+        <View style={[
+          styles.stockIndicator,
+          { backgroundColor: item.stock <= item.lowStockThreshold ? '#FF5722' : '#4CAF50' }
+        ]}>
+          <Text style={styles.stockText}>{item.stock}</Text>
+        </View>
       </View>
-      <View style={styles.itemDetails}>
-        <Text style={[styles.itemDetail, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Stock: {item.stock}
+
+      <View style={styles.productDetails}>
+        <Text style={[styles.productCategory, { color: Colors[colorScheme].tabIconDefault }]}>
+          {item.category}
         </Text>
-        <Text style={[styles.itemDetail, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Price: ${item.price}
+        <Text style={[styles.productPrice, { color: Colors[colorScheme].text }]}>
+          ${item.price.toFixed(2)}
         </Text>
       </View>
-      <TouchableOpacity style={styles.editButton}>
-        <Text style={styles.editButtonText}>Edit</Text>
-      </TouchableOpacity>
-    </View>
+
+      <View style={styles.productFooter}>
+        <Text style={[styles.lastUpdated, { color: Colors[colorScheme].tabIconDefault }]}>
+          Updated {item.lastUpdated}
+        </Text>
+        <TouchableOpacity style={styles.editButton}>
+          <MaterialIcons name="edit" size={20} color={Colors[colorScheme].tint} />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
+    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: Colors[colorScheme ?? 'light'].text }]}>
+        <Text style={[styles.title, { color: Colors[colorScheme].text }]}>
           Inventory
         </Text>
         <TouchableOpacity style={styles.addButton}>
@@ -49,11 +107,63 @@ export default function InventoryScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.searchContainer}>
+        <View style={[styles.searchBar, { backgroundColor: Colors[colorScheme].card }]}>
+          <MaterialIcons name="search" size={20} color={Colors[colorScheme].tabIconDefault} />
+          <TextInput
+            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
+            placeholder="Search products..."
+            placeholderTextColor={Colors[colorScheme].tabIconDefault}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesContainer}
+      >
+        <TouchableOpacity
+          style={[
+            styles.categoryButton,
+            { backgroundColor: !selectedCategory ? Colors[colorScheme].tint : Colors[colorScheme].card }
+          ]}
+          onPress={() => setSelectedCategory(null)}
+        >
+          <Text style={[
+            styles.categoryText,
+            { color: !selectedCategory ? '#fff' : Colors[colorScheme].text }
+          ]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        {categories.map(category => (
+          <TouchableOpacity
+            key={category}
+            style={[
+              styles.categoryButton,
+              { backgroundColor: selectedCategory === category ? Colors[colorScheme].tint : Colors[colorScheme].card }
+            ]}
+            onPress={() => setSelectedCategory(category)}
+          >
+            <Text style={[
+              styles.categoryText,
+              { color: selectedCategory === category ? '#fff' : Colors[colorScheme].text }
+            ]}>
+              {category}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
       <FlatList
-        data={inventoryItems}
-        renderItem={renderItem}
+        data={filteredProducts}
+        renderItem={renderProduct}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles.productsList}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
@@ -74,52 +184,104 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   addButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.light.tint,
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContainer: {
+  searchContainer: {
     padding: 16,
   },
-  itemCard: {
-    padding: 16,
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
     borderRadius: 12,
-    marginBottom: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  itemHeader: {
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+  },
+  categoriesContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  productsList: {
+    padding: 16,
+  },
+  productCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  productHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  itemName: {
-    fontSize: 18,
+  productName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  stockIndicator: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  stockText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: 'bold',
   },
-  itemDetails: {
+  productDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginTop: 8,
   },
-  itemDetail: {
+  productCategory: {
     fontSize: 14,
   },
-  editButton: {
-    backgroundColor: '#2196F3',
-    padding: 8,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  editButtonText: {
-    color: '#fff',
+  productPrice: {
+    fontSize: 16,
     fontWeight: 'bold',
+  },
+  productFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  lastUpdated: {
+    fontSize: 12,
+  },
+  editButton: {
+    padding: 4,
   },
 }); 

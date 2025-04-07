@@ -1,108 +1,177 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Colors } from '@/constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
+
+type Timeframe = 'day' | 'week' | 'month' | 'year';
+
+const mockData = {
+  revenue: {
+    day: [120, 150, 200, 180, 220, 250, 300],
+    week: [1500, 1800, 2200, 2000, 2400, 2800, 3000],
+    month: [8000, 9000, 10000, 9500, 11000, 12000, 13000],
+    year: [120000, 130000, 140000, 150000, 160000, 170000, 180000],
+  },
+  customers: {
+    day: [10, 15, 20, 18, 22, 25, 30],
+    week: [100, 120, 150, 140, 160, 180, 200],
+    month: [500, 600, 700, 650, 750, 800, 900],
+    year: [6000, 6500, 7000, 7500, 8000, 8500, 9000],
+  },
+};
 
 export default function AnalyticsScreen() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('week');
+
+  const timeframes: Timeframe[] = ['day', 'week', 'month', 'year'];
+
+  const getTimeframeLabel = (timeframe: Timeframe) => {
+    switch (timeframe) {
+      case 'day':
+        return 'Today';
+      case 'week':
+        return 'This Week';
+      case 'month':
+        return 'This Month';
+      case 'year':
+        return 'This Year';
+    }
+  };
+
+  const kpis = [
+    {
+      title: 'Total Revenue',
+      value: `$${mockData.revenue[selectedTimeframe][mockData.revenue[selectedTimeframe].length - 1].toLocaleString()}`,
+      change: '+12%',
+      icon: 'attach-money' as const,
+      color: '#4CAF50',
+    },
+    {
+      title: 'Total Customers',
+      value: mockData.customers[selectedTimeframe][mockData.customers[selectedTimeframe].length - 1].toLocaleString(),
+      change: '+8%',
+      icon: 'people' as const,
+      color: '#2196F3',
+    },
+    {
+      title: 'Average Order Value',
+      value: '$45.99',
+      change: '+5%',
+      icon: 'shopping-cart' as const,
+      color: '#FF9800',
+    },
+    {
+      title: 'Customer Satisfaction',
+      value: '94%',
+      change: '+2%',
+      icon: 'star' as const,
+      color: '#FFC107',
+    },
+  ];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Analytics
-        </Text>
-      </View>
-
-      <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-          <MaterialIcons name="trending-up" size={24} color="#4CAF50" />
-          <Text style={[styles.summaryValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-            $12,345
-          </Text>
-          <Text style={[styles.summaryLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
-            Total Revenue
+    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+      <LinearGradient
+        colors={[Colors[colorScheme].tint, Colors[colorScheme].background]}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <Text style={[styles.title, { color: '#fff' }]}>Analytics</Text>
+          <Text style={[styles.subtitle, { color: '#fff' }]}>
+            {getTimeframeLabel(selectedTimeframe)}
           </Text>
         </View>
+      </LinearGradient>
 
-        <View style={[styles.summaryCard, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-          <MaterialIcons name="account-balance" size={24} color="#2196F3" />
-          <Text style={[styles.summaryValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-            $8,234
-          </Text>
-          <Text style={[styles.summaryLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
-            Net Profit
-          </Text>
-        </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.timeframeContainer}
+      >
+        {timeframes.map(timeframe => (
+          <TouchableOpacity
+            key={timeframe}
+            style={[
+              styles.timeframeButton,
+              {
+                backgroundColor: selectedTimeframe === timeframe
+                  ? Colors[colorScheme].tint
+                  : Colors[colorScheme].card
+              }
+            ]}
+            onPress={() => setSelectedTimeframe(timeframe)}
+          >
+            <Text
+              style={[
+                styles.timeframeText,
+                { color: selectedTimeframe === timeframe ? '#fff' : Colors[colorScheme].text }
+              ]}
+            >
+              {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={styles.kpiContainer}>
+        {kpis.map((kpi, index) => (
+          <View
+            key={index}
+            style={[styles.kpiCard, { backgroundColor: Colors[colorScheme].card }]}
+          >
+            <View style={styles.kpiHeader}>
+              <MaterialIcons name={kpi.icon} size={24} color={kpi.color} />
+              <Text style={[styles.kpiChange, { color: kpi.change.startsWith('+') ? '#4CAF50' : '#FF5722' }]}>
+                {kpi.change}
+              </Text>
+            </View>
+            <Text style={[styles.kpiValue, { color: Colors[colorScheme].text }]}>
+              {kpi.value}
+            </Text>
+            <Text style={[styles.kpiTitle, { color: Colors[colorScheme].tabIconDefault }]}>
+              {kpi.title}
+            </Text>
+          </View>
+        ))}
       </View>
 
-      <View style={[styles.section, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-        <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Sales Trends
-        </Text>
+      <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+        <View style={styles.chartHeader}>
+          <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+            Revenue Trend
+          </Text>
+          <TouchableOpacity>
+            <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.chartPlaceholder}>
-          <Text style={[styles.chartText, { color: Colors[colorScheme ?? 'light'].text }]}>
-            Sales Chart Placeholder
+          <Text style={[styles.chartPlaceholderText, { color: Colors[colorScheme].tabIconDefault }]}>
+            Chart visualization will be implemented here
           </Text>
         </View>
       </View>
 
-      <View style={[styles.section, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-        <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Top Products
-        </Text>
-        <View style={styles.productList}>
-          <View style={styles.productItem}>
-            <Text style={[styles.productName, { color: Colors[colorScheme ?? 'light'].text }]}>
-              Product A
-            </Text>
-            <Text style={[styles.productValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              $3,456
-            </Text>
-          </View>
-          <View style={styles.productItem}>
-            <Text style={[styles.productName, { color: Colors[colorScheme ?? 'light'].text }]}>
-              Product B
-            </Text>
-            <Text style={[styles.productValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              $2,789
-            </Text>
-          </View>
-          <View style={styles.productItem}>
-            <Text style={[styles.productName, { color: Colors[colorScheme ?? 'light'].text }]}>
-              Product C
-            </Text>
-            <Text style={[styles.productValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              $1,234
-            </Text>
-          </View>
+      <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme].card }]}>
+        <View style={styles.chartHeader}>
+          <Text style={[styles.chartTitle, { color: Colors[colorScheme].text }]}>
+            Customer Growth
+          </Text>
+          <TouchableOpacity>
+            <MaterialIcons name="more-vert" size={24} color={Colors[colorScheme].tabIconDefault} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.chartPlaceholder}>
+          <Text style={[styles.chartPlaceholderText, { color: Colors[colorScheme].tabIconDefault }]}>
+            Chart visualization will be implemented here
+          </Text>
         </View>
       </View>
-
-      <View style={[styles.section, { backgroundColor: Colors[colorScheme ?? 'light'].card }]}>
-        <Text style={[styles.sectionTitle, { color: Colors[colorScheme ?? 'light'].text }]}>
-          Performance Metrics
-        </Text>
-        <View style={styles.metricsContainer}>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
-              Average Order Value
-            </Text>
-            <Text style={[styles.metricValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              $89.99
-            </Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: Colors[colorScheme ?? 'light'].text }]}>
-              Conversion Rate
-            </Text>
-            <Text style={[styles.metricValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-              3.2%
-            </Text>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -111,91 +180,100 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
+    padding: 20,
+    paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  headerContent: {
+    marginTop: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
   },
-  summaryContainer: {
+  subtitle: {
+    fontSize: 16,
+    marginTop: 4,
+  },
+  timeframeContainer: {
+    paddingHorizontal: 16,
+    marginTop: -30,
+  },
+  timeframeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  timeframeText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  kpiContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     padding: 16,
     gap: 16,
   },
-  summaryCard: {
-    flex: 1,
+  kpiCard: {
+    width: (width - 48) / 2,
     padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderRadius: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  summaryValue: {
+  kpiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  kpiChange: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  kpiValue: {
     fontSize: 24,
     fontWeight: 'bold',
     marginTop: 8,
   },
-  summaryLabel: {
+  kpiTitle: {
     fontSize: 14,
     marginTop: 4,
   },
-  section: {
+  chartContainer: {
     margin: 16,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  sectionTitle: {
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chartTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 16,
   },
   chartPlaceholder: {
     height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 8,
+    borderRadius: 12,
   },
-  chartText: {
-    fontSize: 16,
-  },
-  productList: {
-    gap: 12,
-  },
-  productItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  productName: {
-    fontSize: 16,
-  },
-  productValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  metricsContainer: {
-    gap: 16,
-  },
-  metricItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metricLabel: {
-    fontSize: 16,
-  },
-  metricValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  chartPlaceholderText: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
 }); 

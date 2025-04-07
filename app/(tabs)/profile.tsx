@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useColorScheme } from 'react-native';
-import Colors from '../../constants/Colors';
+import { Colors } from '@/constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
+import React from 'react';
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
